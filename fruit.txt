@@ -1,8 +1,180 @@
-apple
-mango
-banana
-peach
-lemon
-plum
-lemon
-blueberry
+#--------------------------------------------------------------------------------------
+# Test case: random address, random request type, random data -- only for direct mapped
+#--------------------------------------------------------------------------------------
+
+def random_addr_type_data_dmap_msg(base_addr):
+
+
+#initialize 64 address, address-data correspondce: addr[i] -- data[i]
+
+  random.seed(0xdeadbeef)
+
+# generate reference memory
+
+  address=[]
+  data_=[]
+
+# generate reference cache
+
+  cache_addr=[]
+
+# put 64 address into reference memory
+
+  for i in xrange(64):
+    address.append(i*4)
+
+# finding corresponding data in reference memory
+
+  for i in xrange(64):
+    data_.append(Bits(32, random.randint(0,0x000fffff)))
+
+#randomly choose 9 request type, 0 is read, 1 is write, the last one is read
+  type = []
+  for i in xrange(9):
+    type.append(random.randint(0,1))
+
+#define message
+  message = []
+
+---------------------beging 9 times access------------------
+
+  for i in xrange(9):
+
+# initialize hit status
+    
+    hit = 0
+    
+# if read request type
+
+      if type[i] == 0:
+
+#randomly choose between 64 address
+
+        random_addr = random.randint(0,63)
+
+# check to see if cache address is empty
+# if cache address is empty, write cache address
+
+        if len(cache_addr) == 0:
+          message.append(req('rd', i, address[random_addr], 0, 0))
+          message.append(resp('rd', i, 0, 0, data_[random_addr]))
+          cache_addr.append(address[random_addr])
+
+        else:
+
+# if cache is not empty, check tag to see whether is hit or miss 
+                
+          for i in reversed(cache_addr):
+          
+# if same index, check tag
+            index0 = i>>4
+            index0 = index0<<28
+            index1 = address[random_addr]>>4
+            index1 = index1<<28
+            if(index0 == index1):
+
+# if same index, same tag, read hit
+              tag0 = i >>8
+              tag1 = address[random_addr]>>8
+              if(tag0 == tag1):
+                message.append(req('rd', i, address[random_addr], 0, 0))
+                message.append(resp('rd', i, 1, 0, data_[random_addr]))
+
+# update hit status
+
+                hit = 1
+              
+# if find same index, break from looking up in cache address
+
+            break
+
+# after looking up in cache, if read miss
+
+          if hit == 0:
+            message.append(req('rd', i, address[random_addr], 0, 0))
+            message.append(resp('rd', i, 0, 0, data_[random_addr]))
+            cache_addr.append(address[random_addr])
+
+
+
+# if write
+      else:
+
+# generate random message
+        random_data = Bits(32, random.randint(0, 0x000fffff))
+
+# randomly choose between 64 address
+        random_addr = random.randint(0,63)
+
+# check to see if cache is empty
+# if empty, write cache address and update reference memory
+
+        if len(cache_addr) == 0:
+          message.append(req('wr', i, address[random_addr], 0, random_data))
+          message.append(resp('wr', i, 0, 0, 0))
+          cache_addr.append(address[random_addr])
+
+# if cache is not empty, check tag to see whether is hit or miss 
+        else:
+      
+# check cache address backwards
+
+          for i in reversed(cache_addr):
+
+# if same index, check tag
+            index0 = i>>4
+            index0 = index0<<28
+            index1 = address[random_addr]>>4
+            index1 = index1<<28
+            if(index0 == index1):
+
+# if same index, same tag, write hit, update reference memory
+              tag0 = i >>8
+              tag1 = address[random_addr]>>8
+              if(tag0 == tag1):
+
+                message.append(req('wr', i, address[random_addr], 0, random_data))
+                message.append(resp('wr', i, 1, 0, 0))
+                hit = 1
+              
+# if index match, break from looking up in cache 
+
+            break
+
+# after iterating in cache address, if write miss
+
+          if hit == 0:
+            message.append(req('wr', i, address[random_addr], 0, random_data))
+            message.append(resp('wr', i, 0, 0, 0))
+            cache_addr.append(address[random_addr])
+          
+# update reference memory regardless of hit or miss
+        data_[random_addr] = random_data
+
+
+
+  return message
+
+
+
+
+def random_addr_type_data_dmap_mem(base_addr):
+
+  random.seed(0xdeadbeef)
+  addr = []
+  data = []
+  addr_data = []
+
+  for i in xrange(64):
+    data.append(Bits(32, random.randint(0,0x000fffff)))
+
+  for i in xrange(64):
+    addr.append(4*i)
+
+  for i in xrange(128):
+    if i%2 == 0:
+      addr_data.append(addr[i/2])
+    else:
+      addr_data.append(data[(i-1)/2])
+
+  return addr_data
