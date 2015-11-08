@@ -123,10 +123,6 @@ class RouterBaseDpathPRTL( Model ):
     
     s.connect(s.xbar.out[2], s.out2_msg)
     
-    
-    
-    
-  
 
 #-------------------------------------------------------------------------
 # Baseline router control unit
@@ -139,7 +135,164 @@ class RouterBaseDpathPRTL( Model ):
 class RouterBaseCtrlPRTL( Model ):
 
   def __init__( s ):
-    pass
+  
+  #-----------------------------------------------------------------------
+  # interface
+  #-----------------------------------------------------------------------
+  
+  # port 0 input
+  
+  s.in0_val = InPort   (1)
+  s.in0_rdy = OutPort  (1)
+  
+  # port 1 input
+  
+  s.in1_val = InPort   (1)
+  s.in1_rdy = OutPort  (1)
+  
+  # port 2 input
+  
+  s.in2_val = InPort   (1)
+  s.in2_rdy = OutPort  (1)
+  
+  # port 0 output
+  
+  s.out0_val = InPort  (1)
+  s.out0_rdy = OutPort (1)
+  
+  # port 1 output
+  
+  s.out1_val = InPort  (1)
+  s.out1_rdy = OutPort (1)
+  
+  # port 2 output
+  
+  s.out2_val = InPort  (1)
+  s.out2_rdy = OutPort (1)
+  
+  # Control Signals (ctrl->dpath)
+  
+  s.xbar_sel0 = OutPort (2)
+  s.xbar_sel1 = OutPort (2)
+  s.xbar_sel2 = OutPort (2)
+  
+  # Status Signals (dpath->ctrl)
+  
+  s.dest0 = InPort(1)
+  s.dest1 = InPort(1)
+  s.dest2 = InPort(1)
+  s.num_free_west = InPort(1)
+  s.num_free_east = InPort(1)
+  
+  # define wires
+  
+  s.in_reqs0    = Wire (1)
+  s.in_reqs1    = Wire (1)
+  s.in_reqs2    = Wire (1)
+  
+  s.out_reqs0   = Wire (1)
+  s.out_reqs1   = Wire (1)
+  s.out_reqs2   = Wire (1)
+  
+  s.in_grants0  = Wire (1)
+  s.in_grants1  = Wire (1)
+  s.in_grants2  = Wire (1)
+  
+  s.out_grants0 = Wire (1)
+  s.out_grants1 = Wire (1)
+  s.out_grants2 = Wire (1)
+  
+  # construct wires
+  
+  s.connect_pairs(
+   out_reqs0[0], in_reqs0[0],
+   out_reqs0[1], in_reqs1[0],
+   out_reqs0[2], in_reqs2[0],
+  )
+  
+  s.connect_pairs(
+   out_reqs1[0], in_reqs0[1],
+   out_reqs1[1], in_reqs1[1],
+   out_reqs1[2], in_reqs2[1],
+  )
+  
+  s.connect_pairs(
+   out_reqs2[0], in_reqs0[2],
+   out_reqs2[1], in_reqs1[2],
+   out_reqs2[2], in_reqs2[2],
+  )
+  
+  s.connect_pairs(
+   in_grants0[0], out_grants0[0],
+   in_grants0[1], out_grants1[0], 
+   in_grants0[2], out_grants2[0],
+  )
+  
+  s.connect_pairs(
+   in_grants1[0], out_grants0[1],
+   in_grants1[1], out_grants1[1],
+   in_grants1[2], out_grants2[1],
+  )
+  
+  s.connect_pairs(
+   in_grants2[0], out_grants0[2],
+   in_grants2[1], out_grants1[2],
+   in_grants2[2], out_grants2[2],
+  )
+  
+  #-----------------------------------------------------------------------
+  # Structural Components
+  #-----------------------------------------------------------------------
+  
+  s.arbiter0 = m = arbiters (3)
+  s.connect_pairs(
+   m.reqs, s.out_reqs0,
+   m.grants, s.out_grants0,
+  )
+  
+  s.arbiter1 = m = arbiters (3)
+  s.connect_pairs(
+   m.reqs, s.out_reqs1,
+   m.grants, s.out_grants1,
+  )
+  
+  s.arbiter2 = m = arbiters (3)
+  s.connect_pairs(
+   m.reqs, s.out_reqs2,
+   m.grants, s.out_grants2, 
+  )
+  
+  
+  #-----------------------------------------------------------------------
+  # control logic
+  #-----------------------------------------------------------------------
+  
+  @s.combinatinal
+  def control_logic():
+  
+   if (in_reqs0 == in_grants0):
+    in0_deq_rdy.value = 1
+    
+   if (in_reqs1 == in_grants1):
+    in1_deq_rdy.value = 1
+    
+   if (in_reqs2 == in_grants2):
+    in2_deq_rdy.value = 1
+    
+   for i in xrange (3):
+    if (out_grants0[i] == 1):
+      if (out_reqs)##############################
+      xbar_sel0.value = i
+    )
+   
+   for i in xrange (3):
+    if (out_grants1[i] == 1):
+      xbar_sel1.value = i
+      
+   for i in xrange (3):
+    if (out_grants2[i] == 1):
+     xbar_sel2.value = i
+    )
 
 #-------------------------------------------------------------------------
 # Top-level module
