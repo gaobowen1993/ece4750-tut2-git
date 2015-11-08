@@ -1,341 +1,72 @@
-#=========================================================================
-# RouterBasePRTL.py
-#=========================================================================
-
-from pymtl      import *
-from pclib.ifcs import NetMsg
-from pclib.ifcs import InValRdyBundle, OutValRdyBundle
-from pclib.rtl  import Crossbar, NormalQueue, RoundRobinArbiter
-
-#-------------------------------------------------------------------------
-# Baseline router datapath
-#-------------------------------------------------------------------------
-
-# ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-# LAB TASK: Implement router datapath
-# ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-class RouterBaseDpathPRTL( Model ):
-
-  def __init__( s ):
-    
-    NUM_ROUTERS = 8
-    OPAQUE_NBITS = 8
-    PAYLOAD_NBITS = 32
-    
-    #---------------------------------------------------------------------
-    # interface
-    #---------------------------------------------------------------------
-    
-    # port 0 input
-    
-    s.in0_msg = InPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITS, PAYLOAD_NBITS) )
-    
-    # port 1 input 
-    
-    s.in1_msg = InPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITS, PAYLOAD_NBITS) )
-    
-    # port 2 input
-    
-    s.in2_msg = InPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITS, PAYLOAD_NBITS) )
-    
-    # port 0 output
-    
-    s.out0_msg = OutPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITs, PAYLOAD_NBITS) )
-    
-    # port 1 output
-    
-    s.out1_msg = OutPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITs, PAYLOAD_NBITS) )
-    
-    # port 2 output
-    
-    s.out2_msg = OutPort( NetMsg( NUM_ROUTERS, 2**OPAQUE_NBITs, PAYLOAD_NBITS) )
-    
-    # Control Signals (ctrl->dpath)
-    
-    s.xbar_sel0 = InPort (2)
-    s.xbar_sel1 = InPort (2)
-    s.xbar_sel2 = InPort (2)
-    
-    # Status Signals (dpath->ctrl)
-    
-    s.dest0 = OutPort (3)
-    s.dest1 = OutPort (3)
-    s.dest2 = OutPort (3)
-    s.num_free_west = OutPort (2)
-    s.num_free_east = OutPort (2)
-    
-    
-    #---------------------------------------------------------------------
-    # Structural Composition
-    #---------------------------------------------------------------------
-    
-    # in0_queue
-    
-    s.in0_queue = m = NormalQueue(4, 46)
-    s.connect_pairs(
-     m.enq, s.in0_msg,
-     m.num_free_entries, s.num_free_west,
-    )
-    
-    s.connect(s.in0_queue.deq[43:46], s.dest0)
-    
-    # in1_queue
-    
-    s.in1_queue = m = NormalQueue(4, 46)
-    s.connect_pairs(
-     m.enq, s.in1_msg,
-    )
-    
-    s.connect(s.in1_queue.deq[43:46], s.dest1)
-    
-    # in2_queue
-    
-    s.in2_queue = m = NormalQueue(4, 46)
-    s.connect_pairs(
-     m.enq, s.in2_msg,
-     m.num_free_entries, s.num_free_east,
-    )
-    
-    s.connect(s.in2_queue.deq[43:46], s.dest2)
-    
-    # xbar
-    
-    s.xbar = m = Crossbar(3, 46)
-    s.connect_pairs(
-     m.in_[0], s.in0_queue.deq,
-     m.in_[1], s.in1_queue.deq,
-     m.in_[2], s.in2_queue.deq,
-     m.sel[0], s.xbar_sel0,
-     m.sel[1], s.xbar_sel1,
-     m.sel[2], s.xbar_sel2,
-    )
-    
-    # port 0 output
-    
-    s.connect(s.xbar.out[0], s.out0_msg)
-    
-    # port 1 output
-    
-    s.connect(s.xbar.out[1], s.out1_msg)
-    
-    # port 2 output
-    
-    s.connect(s.xbar.out[2], s.out2_msg)
-    
-
-#-------------------------------------------------------------------------
-# Baseline router control unit
-#-------------------------------------------------------------------------
-
-# ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-# LAB TASK: Implement router control unit
-# ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-class RouterBaseCtrlPRTL( Model ):
-
-  def __init__( s ):
-  
-  #-----------------------------------------------------------------------
-  # interface
-  #-----------------------------------------------------------------------
-  
-  # port 0 input
-  
-  s.in0_val = InPort   (1)
-  s.in0_rdy = OutPort  (1)
-  
-  # port 1 input
-  
-  s.in1_val = InPort   (1)
-  s.in1_rdy = OutPort  (1)
-  
-  # port 2 input
-  
-  s.in2_val = InPort   (1)
-  s.in2_rdy = OutPort  (1)
-  
-  # port 0 output
-  
-  s.out0_val = InPort  (1)
-  s.out0_rdy = OutPort (1)
-  
-  # port 1 output
-  
-  s.out1_val = InPort  (1)
-  s.out1_rdy = OutPort (1)
-  
-  # port 2 output
-  
-  s.out2_val = InPort  (1)
-  s.out2_rdy = OutPort (1)
-  
-  # Control Signals (ctrl->dpath)
-  
-  s.xbar_sel0 = OutPort (2)
-  s.xbar_sel1 = OutPort (2)
-  s.xbar_sel2 = OutPort (2)
-  
-  # Status Signals (dpath->ctrl)
-  
-  s.dest0 = InPort(1)
-  s.dest1 = InPort(1)
-  s.dest2 = InPort(1)
-  s.num_free_west = InPort(1)
-  s.num_free_east = InPort(1)
-  
-  # define wires
-  
-  s.in_reqs0    = Wire (1)
-  s.in_reqs1    = Wire (1)
-  s.in_reqs2    = Wire (1)
-  
-  s.out_reqs0   = Wire (1)
-  s.out_reqs1   = Wire (1)
-  s.out_reqs2   = Wire (1)
-  
-  s.in_grants0  = Wire (1)
-  s.in_grants1  = Wire (1)
-  s.in_grants2  = Wire (1)
-  
-  s.out_grants0 = Wire (1)
-  s.out_grants1 = Wire (1)
-  s.out_grants2 = Wire (1)
-  
-  # construct wires
-  
-  s.connect_pairs(
-   out_reqs0[0], in_reqs0[0],
-   out_reqs0[1], in_reqs1[0],
-   out_reqs0[2], in_reqs2[0],
-  )
-  
-  s.connect_pairs(
-   out_reqs1[0], in_reqs0[1],
-   out_reqs1[1], in_reqs1[1],
-   out_reqs1[2], in_reqs2[1],
-  )
-  
-  s.connect_pairs(
-   out_reqs2[0], in_reqs0[2],
-   out_reqs2[1], in_reqs1[2],
-   out_reqs2[2], in_reqs2[2],
-  )
-  
-  s.connect_pairs(
-   in_grants0[0], out_grants0[0],
-   in_grants0[1], out_grants1[0], 
-   in_grants0[2], out_grants2[0],
-  )
-  
-  s.connect_pairs(
-   in_grants1[0], out_grants0[1],
-   in_grants1[1], out_grants1[1],
-   in_grants1[2], out_grants2[1],
-  )
-  
-  s.connect_pairs(
-   in_grants2[0], out_grants0[2],
-   in_grants2[1], out_grants1[2],
-   in_grants2[2], out_grants2[2],
-  )
-  
-  #-----------------------------------------------------------------------
-  # Structural Components
-  #-----------------------------------------------------------------------
-  
-  s.arbiter0 = m = arbiters (3)
-  s.connect_pairs(
-   m.reqs, s.out_reqs0,
-   m.grants, s.out_grants0,
-  )
-  
-  s.arbiter1 = m = arbiters (3)
-  s.connect_pairs(
-   m.reqs, s.out_reqs1,
-   m.grants, s.out_grants1,
-  )
-  
-  s.arbiter2 = m = arbiters (3)
-  s.connect_pairs(
-   m.reqs, s.out_reqs2,
-   m.grants, s.out_grants2, 
-  )
-  
-  
   #-----------------------------------------------------------------------
   # control logic
   #-----------------------------------------------------------------------
+
+    @s.combinational
+    def control_logic():
   
-  @s.combinatinal
-  def control_logic():
+  #-----------------------------------------------------------------------
+  # routing algorithm
   
-   if (in_reqs0 == in_grants0):
-    in0_deq_rdy.value = 1
-    
-   if (in_reqs1 == in_grants1):
-    in1_deq_rdy.value = 1
-    
-   if (in_reqs2 == in_grants2):
-    in2_deq_rdy.value = 1
-    
-   for i in xrange (3):
-    if (out_grants0[i] == 1):
-      if (out_reqs)##############################
-      xbar_sel0.value = i
-    )
-   
-   for i in xrange (3):
-    if (out_grants1[i] == 1):
-      xbar_sel1.value = i
+      if (int0_deq_val == 1):
+        s.in_reqs0.value = 1
+      else: 
+        s.in_reqs0.value = 0
       
-   for i in xrange (3):
-    if (out_grants2[i] == 1):
-     xbar_sel2.value = i
-    )
+      if (int1_deq_val == 1):
+        s.in_reqs1.value = 1
+      else:
+        s.in_reqs1.value = 0
+      
+      if (int2_deq_val == 1):
+        s.in_reqs2.value = 1
+      else:
+        s.in_reqs2.value = 0
+  #------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------
-# Top-level module
-#-------------------------------------------------------------------------
+  
+  # set input rdy signal
 
-class RouterBasePRTL( Model ):
+      s.in0_deq_rdy.value = 1
+      s.in1_deq_rdy.value = 1
+      s.in1_deq_rdy.value = 1
+      
+      # if deq is valid, but arbiters don't grant the privilege or output is not ready, then deq not ready
+      
+      if ((s.in_reqs0 != 0) & (s.in_grants0 == 0)):
+        s.in0_deq_rdy.value = 0
 
-  #-----------------------------------------------------------------------
-  # Constructor
-  #-----------------------------------------------------------------------
+      if ((s.in_reqs0 != 0) & (s.in_grants1 == 0)):
+        s.in1_deq_rdy.value = 0
 
-  def __init__( s, payload_nbits = 32, opaque_nbits = 8, num_routers = 8, router_id = 0 ):
+      if ((s.in_reqs2 != 0) & (s.in_grants2 == 0)):
+        s.in2_deq_rdy.value = 0
 
-    srcdest_nbits = clog2( num_routers )
+  # set select signal and output val signal 
 
-    # Interface
+      if (s.out0_rdy == 0):
+        s.out_grants0.value = 0
+      
+      # does the value of out_grants0 change if rdy is 1?
+      elif (s.out_grants0 != 0):
+        s.out0_val.value = 1
+        for i in xrange (3):
+          if (s.out_grants0[i] == 1):
+            s.xbar_sel0.value = i
+      
+      if (s.out1_rdy == 0):
+        s.out_grants1.value = 0
+      elif (s.out_grants1 != 0):
+        s.out1_val.value = 1
+        for i in xrange (3):
+          if (s.out_grants1[i] == 1):
+            s.xbar_sel1.value = i
+            
+      if (s.out2_rdy == 0):
+        s.out_grants2.value = 0
+      elif (s.out_grants != 0):
+        s.out2_val.value = 1
+        for i in xrange (3):
+          if (s.out_grants2[i] == 1):
+            s.xbar_sel2.value = i
 
-    s.in_ = InValRdyBundle [3]( NetMsg(num_routers, 2**opaque_nbits, payload_nbits) )
-    s.out = OutValRdyBundle[3]( NetMsg(num_routers, 2**opaque_nbits, payload_nbits) )
-
-    # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-    # LAB TASK: Connect control unit and datapath
-    # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-    # A work-around to get line-trace working
-
-    s.in_msg_opaque = Wire[3]( opaque_nbits  )
-    s.in_msg_src    = Wire[3]( srcdest_nbits )
-    s.in_msg_dest   = Wire[3]( srcdest_nbits )
-
-    for i in xrange(3):
-      s.connect_wire( s.in_msg_opaque[i], s.in_[i].msg.opaque )
-      s.connect_wire( s.in_msg_src[i],    s.in_[i].msg.src    )
-      s.connect_wire( s.in_msg_dest[i],   s.in_[i].msg.dest   )
-
-  #-----------------------------------------------------------------------
-  # Line-trace
-  #-----------------------------------------------------------------------
-
-  def line_trace( s ):
-
-    in0_str = "%02s:%1s>%1s" % ( s.in_[0].to_str( s.in_msg_opaque[0] ), s.in_[0].to_str( s.in_msg_src[0] ),s.in_[0].to_str( s.in_msg_dest[0] ) )
-    in1_str = "%02s:%1s>%1s" % ( s.in_[1].to_str( s.in_msg_opaque[1] ), s.in_[1].to_str( s.in_msg_src[1] ),s.in_[1].to_str( s.in_msg_dest[1] ) )
-    in2_str = "%02s:%1s>%1s" % ( s.in_[2].to_str( s.in_msg_opaque[2] ), s.in_[2].to_str( s.in_msg_src[2] ),s.in_[2].to_str( s.in_msg_dest[2] ) )
-
-    return "({}|{}|{})".format( in0_str, in1_str, in2_str )
